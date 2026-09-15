@@ -1,0 +1,587 @@
+{
+    "definition": {
+        "metadata": {
+            "notes": {}
+        },
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "triggers": {
+            "When_an_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http",
+                "conditions": [
+                    {
+                        "expression": "@equals(triggerBody()?['resource']?['revision']?['fields']?['System.State'],'Active')"
+                    }
+                ],
+                "runtimeConfiguration": {
+                    "concurrency": {
+                        "runs": 1,
+                        "maximumWaitingRuns": 10
+                    }
+                }
+            }
+        },
+        "actions": {
+            "Condition": {
+                "actions": {
+                    "Condition_1": {
+                        "actions": {
+                            "Create_a_work_item_project_Rantala": {
+                                "runAfter": {
+                                    "Compose_Rantala": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "title": "@concat(parameters('Uusi_PostreSQL'),\noutputs('Compose_Project_Name'))",
+                                        "description": "<p class=\"editor-paragraph\">@{outputs('Compose_Rantala')}</p>",
+                                        "area": "@parameters('ENV_AreaPath')",
+                                        "linkUrl": "@body('Get_work_item_details')?['url']",
+                                        "linkType": "Hierarchy-reverse",
+                                        "userEnteredFields": {
+                                            "Account": "Ylläpito"
+                                        },
+                                        "dynamicFields": {
+                                            "System.AssignedTo": "janne.rantala@fujitsu.com",
+                                            "Custom.Category": "PSQL"
+                                        }
+                                    },
+                                    "path": "/@{encodeURIComponent(parameters('ENV_Project'))}/_apis/wit/workitems/$@{encodeURIComponent('Support Request ICT')}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_EstimatedDatabaseSize": {
+                                "runAfter": {
+                                    "Create_a_work_item_project_Rantala": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_EstimatedDatabaseSize']"
+                            },
+                            "Compose_EstimatedDatabaseSize_to_tshirt": {
+                                "runAfter": {
+                                    "Compose_EstimatedDatabaseSize": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@if(contains(coalesce(outputs('Compose_EstimatedDatabaseSize'),''),'1'),'Small',if(contains(coalesce(outputs('Compose_EstimatedDatabaseSize'),''),'2'),'Medium','Large'))"
+                            },
+                            "Compose": {
+                                "runAfter": {
+                                    "Compose_EstimatedDatabaseSize_to_tshirt": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@concat('Tietokannan ja application account nimi: ', outputs('Compose_Name'),'<br><br>',\n\n'PG-ryhmät:','<br>','-pg_',outputs('Compose_Name'),'_admin','<br>','- pg_',outputs('Compose_Name'),'_readonly','<br>',\n'Priority: ', outputs('Compose_priority'),\n'<br>','Resource class: ', outputs('Compose_EstimatedDatabaseSize_to_tshirt')\n)"
+                            },
+                            "Create_a_work_item_project_Vartia": {
+                                "runAfter": {
+                                    "Compose_Vartia": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "title": "@concat(parameters('Uusi_CNPG'),outputs('Compose_Name'))",
+                                        "description": "<p class=\"editor-paragraph\"><br></p>",
+                                        "area": "@parameters('ENV_AreaPath')",
+                                        "linkUrl": "@body('Get_work_item_details')?['url']",
+                                        "linkType": "Hierarchy-reverse",
+                                        "userEnteredFields": {
+                                            "Account": "Ylläpito"
+                                        },
+                                        "dynamicFields": {
+                                            "System.AssignedTo": "@parameters('ENV_assigned')",
+                                            "Custom.Category": "PSQL"
+                                        }
+                                    },
+                                    "path": "/@{encodeURIComponent(parameters('ENV_Project'))}/_apis/wit/workitems/$@{encodeURIComponent('Support Request ICT')}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_Environmet": {
+                                "runAfter": {
+                                    "Compose_Nodeport": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_Environmet']"
+                            },
+                            "Compose_priority": {
+                                "runAfter": {
+                                    "Compose_Environmet": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@if(\nequals(outputs('Compose_Environmet'),'prod'),'priority-production','priority-nonproduction')"
+                            },
+                            "Update_a_work_item": {
+                                "runAfter": {
+                                    "Create_a_work_item_project_Vartia": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-6']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "description": "<p class=\"editor-paragraph\">@{outputs('Compose_Vartia')}</p>",
+                                        "linkUrl": "@body('Create_a_work_item_project_Rantala')?['url']",
+                                        "linkType": "Dependency-reverse"
+                                    },
+                                    "path": "/_apis/wit/workitems/@{encodeURIComponent(body('Create_a_work_item_project_Vartia')?['id'])}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_Vartia": {
+                                "runAfter": {
+                                    "Compose_readonly": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@concat(parameters('Database'),'<ul><li>',replace(outputs('Compose_Name'),'-','_'),'</li></ul>','<strong>',parameters('App account'),'</strong>','<ul><li>',outputs('Compose_Alias_or_App_Name'),'</li></ul>',parameters('Addons'),'<ul><li>',parameters('PGExtension'),'</li></ul>',parameters('Version'),'<ul><li>',parameters('PGVersion'),'</li></ul>',parameters('LDAPGroups'),'<ul><li>',outputs('Compose_admin'),'</li><li>',outputs('Compose_readonly'),'</li></ul>',parameters('Priority'),'<ul><li>',outputs('Compose_priority'),'</li></ul>',parameters('ResourceClass'),'<ul><li>',outputs('Compose_EstimatedDatabaseSize_to_tshirt'),'</li></ul>','<strong>OpenShift ingress</strong>','<ul><li>',replace(outputs('Compose_Application_Severs'),';','</li><li>'),'</li></ul>',parameters('Nodeport'),'<ul><li>',outputs('Compose_Nodeport'),'</li></ul>',if(equals(body('Get_work_item_details')?['Custom_Databasemigration'],true),concat(parameters('Migration'),'<ul><li>',body('Get_work_item_details')?['Custom_InstanceNameandPort'],'<ul><li>',outputs('Compose_Alias_or_App_Name'),'</li></ul></li></ul>'),''),parameters('ResourceClasses'))"
+                            },
+                            "Compose_Extensions": {
+                                "runAfter": {
+                                    "Compose": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_Extensions']"
+                            },
+                            "Compose_Nodeport": {
+                                "runAfter": {
+                                    "Compose_Alias_or_App_Name": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_Nodeport']"
+                            },
+                            "Compose_Rantala": {
+                                "runAfter": {
+                                    "Compose_Project_Name": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@concat(parameters('ArgoTask'),'<br>','<strong>Projekti</strong>','<ul><li>',outputs('Compose_Project_Name'),'</li></ul>','<strong>Luvitus: </strong>','role-openshift-database-admin')"
+                            },
+                            "Create_a_work_item_LDAP_ryhmien_luonti": {
+                                "runAfter": {
+                                    "Create_a_work_item_TL": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "title": "LDAP ryhmien luonti MidPoint-pg-tietokannoille",
+                                        "area": "@parameters('ENV_AreaPath')",
+                                        "linkUrl": "@body('Get_work_item_details')?['url']",
+                                        "linkType": "Related",
+                                        "dynamicFields": {
+                                            "System.AssignedTo": "@parameters('ENV_LDAP_assigned')"
+                                        }
+                                    },
+                                    "path": "/@{encodeURIComponent(parameters('ENV_Project'))}/_apis/wit/workitems/$@{encodeURIComponent('User Story')}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Create_a_work_item_TL": {
+                                "runAfter": {
+                                    "Compose_TL_lahde": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "title": "@concat('TL: ',outputs('Compose_Name'))",
+                                        "description": "<p class=\"editor-paragraph\">@{concat('<strong>Lähde:</strong>','<ul><li>',replace(outputs('Compose_Application_Severs'),';','</li><li>'),'</li></ul>','<strong>Kohde:</strong>','<ul><li>',outputs('Compose_TL_Lahde'),'</li></ul>','<strong>Portti:</strong>','<ul><li>',outputs('Compose_Nodeport'),'</li></ul>')}</p>",
+                                        "linkUrl": "@body('Get_work_item_details')?['url']",
+                                        "linkType": "Hierarchy-reverse",
+                                        "userEnteredFields": {
+                                            "Account": "Ylläpito"
+                                        },
+                                        "dynamicFields": {
+                                            "System.AssignedTo": "ari.s.heinonen@fujitsu.com",
+                                            "Custom.Category": "PSQL"
+                                        }
+                                    },
+                                    "path": "/@{encodeURIComponent(parameters('ENV_Project'))}/_apis/wit/workitems/$@{encodeURIComponent('Support Request ICT')}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_TL_lahde": {
+                                "runAfter": {
+                                    "Update_a_work_item": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@if(equals(outputs('Compose_Environmet'),'test'),'nodeport_test.ocp.laboratorio.fi',if(equals(outputs('Compose_Environmet'),'nightly'),'nodeport_nightly.ocp.laboratorio.fi',if(equals(outputs('Compose_Environmet'),'prod'),'nodeport.ocp.laboratorio.fi','nodeport_dev.ocp.laboratorio.fi')))"
+                            },
+                            "Update_a_work_item_1": {
+                                "runAfter": {
+                                    "Create_a_work_item_LDAP_ryhmien_luonti": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-6']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "description": "<p class=\"editor-paragraph\">@{concat(\n'Luodaan LDAP ryhmät henkilökohtaisia tunnuksia varten.<br>',\nparameters('LDAPGroups'),\n'<ul>',\n'<li>pg_',replace(replace(toLower(outputs('Compose_Name')),'lab20-',''),'-','_'),'_admin</li>',\n'<li>pg_',replace(replace(toLower(outputs('Compose_Name')),'lab20-',''),'-','_'),'_readonly</li>',\n'</ul>'\n)}</p>"
+                                    },
+                                    "path": "/_apis/wit/workitems/@{encodeURIComponent(body('Create_a_work_item_LDAP_ryhmien_luonti')?['id'])}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_Application_Severs": {
+                                "runAfter": {
+                                    "Compose_Extensions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@replace(\n replace(\n  replace(\n   replace(body('Get_work_item_details')?['fields']?['Custom_Applicationservers'],'<ul>',''),\n  '</ul>',''),\n '</li><li>',';'),\n'<li>','')"
+                            },
+                            "Compose_Mirgration": {
+                                "runAfter": {
+                                    "Compose_Migration_Instance": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@if(\nequals(body('Get_work_item_details')?['fields']?['Custom_Databasemigration'],true),\nif(\nempty(trim(coalesce(body('Get_work_item_details')?['fields']?['Custom_Alias'],''))),\ntrim(body('Get_work_item_details')?['fields']?['Custom_Applicationname']),\ntrim(body('Get_work_item_details')?['fields']?['Custom_Alias'])\n),\n'ei'\n)"
+                            },
+                            "Create_a_work_item_Uudet_PostreSQL_OpenLDAP_luvitukset": {
+                                "runAfter": {
+                                    "Update_a_work_item_1": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "title": "@concat('Uudet PostreSQL OpenLDAP luvitukset :',\noutputs('Compose_Name'))",
+                                        "description": "<p class=\"editor-paragraph\">@{concat('Luvitukset tunnuksille:','<ol>','<li>Lue ohjeet: <a href=\"https://fimlab.atlassian.net/wiki/spaces/OH/pages/2619342851/PostgreSQL+p+synhallinta\">https://fimlab.atlassian.net/wiki/spaces/OH/pages/2619342851/PostgreSQL+p+synhallinta</a><br>(Mikäli tarvitset lisäohjeita, niin ota yhteyttä Fimlabin kumppanitunnustiimiin).</li>','<li>LDAP-ryhmät<br>• ',outputs('Compose_admin'),'<br>',body('Get_work_item_details')?['fields']?['Custom_Adminusersemails'],'<br><br>• ',outputs('Compose_readonly'),'<br>',body('Get_work_item_details')?['fields']?['Custom_Readonlyusersemails'],'</li>','</ol>')}</p>",
+                                        "area": "@parameters('ENV_AreaPath')",
+                                        "linkUrl": "@body('Get_work_item_details')?['url']",
+                                        "linkType": "Hierarchy-reverse",
+                                        "dynamicFields": {
+                                            "System.AssignedTo": "@body('Get_work_item_details')?['fields']?\n['Microsoft_VSTS_CMMI_CalledBy']"
+                                        }
+                                    },
+                                    "path": "/@{encodeURIComponent(parameters('ENV_Project'))}/_apis/wit/workitems/$@{encodeURIComponent('User Story')}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
+                            "Compose_Migration_Instance": {
+                                "runAfter": {
+                                    "Compose_Application_Severs": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_InstanceNameandPort']"
+                            },
+                            "Compose_admin": {
+                                "runAfter": {
+                                    "Compose_Mirgration": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@concat('pg_',replace(toLower(outputs('Compose_Alias_or_App_Name')),'-','_'),'_admin')"
+                            },
+                            "Compose_Alias_or_App_Name": {
+                                "type": "Compose",
+                                "inputs": "@if(\nempty(trim(coalesce(body('Get_work_item_details')?['fields']?['Custom_Alias'],''))),\ntrim(body('Get_work_item_details')?['fields']?['Custom_Applicationname']),\ntrim(body('Get_work_item_details')?['fields']?['Custom_Alias'])\n)"
+                            },
+                            "Compose_readonly": {
+                                "runAfter": {
+                                    "Compose_admin": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@concat('pg_',replace(toLower(outputs('Compose_Alias_or_App_Name')),'-','_'),'_readonly')"
+                            },
+                            "Compose_Project_Name": {
+                                "runAfter": {
+                                    "Compose_priority": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@if(equals(toLower(outputs('Compose_Environmet')),'test'),concat(body('Get_work_item_details')?['fields']?['Custom_ApplicationID'],'i'),body('Get_work_item_details')?['fields']?['Custom_ApplicationID'])"
+                            }
+                        },
+                        "runAfter": {
+                            "Compose_Name": [
+                                "Succeeded"
+                            ]
+                        },
+                        "else": {
+                            "actions": {}
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "equals": [
+                                        "@not(empty(outputs('Compose_Name')))",
+                                        true
+                                    ]
+                                }
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "Compose_Name": {
+                        "type": "Compose",
+                        "inputs": "@body('Get_work_item_details')?['fields']?['Custom_ApplicationID']"
+                    }
+                },
+                "runAfter": {
+                    "Compose_System_Reason": [
+                        "Succeeded"
+                    ]
+                },
+                "else": {
+                    "actions": {}
+                },
+                "expression": {
+                    "and": [
+                        {
+                            "equals": [
+                                "@body('Get_work_item_details')?['fields']?['Custom_Active']",
+                                true
+                            ]
+                        }
+                    ]
+                },
+                "type": "If"
+            },
+            "Compose_System_Reason": {
+                "runAfter": {
+                    "Get_work_item_details": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Compose",
+                "inputs": "@body('Get_work_item_details')?['fields']?['Custom_Active']"
+            },
+            "Get_work_item_details": {
+                "runAfter": {},
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['visualstudioteamservices-2']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/_apis/wit/workitems/@{encodeURIComponent(triggerBody()?['resource']?['WorkItemId'])}",
+                    "queries": {
+                        "account": "@parameters('ENV_Organization')",
+                        "project": "@triggerBody()?['resource']?['revision']?['fields']?['System.TeamProject']",
+                        "typeName": "@triggerBody()?['resource']?['revision']?['fields']?['System.WorkItemType']"
+                    }
+                }
+            }
+        },
+        "outputs": {},
+        "parameters": {
+            "ArgoTask": {
+                "defaultValue": "ArgoCD configurointi uudelle projektille ja repon synkronointi OpenShiftiin",
+                "type": "String"
+            },
+            "Project": {
+                "defaultValue": "Projekti",
+                "type": "String"
+            },
+            "Access": {
+                "defaultValue": "<b>Luvitus</b>\n<ul>\n<li>Kari Vartia</li>\n<li>Marko Mironoff</li>\n<li>Harri Oinas</li>\n<li>Sami Houtsonen</li>\n</ul>",
+                "type": "String"
+            },
+            "EgressRules": {
+                "defaultValue": "<b>OpenShift egress</b><ul><li>Kubernetes</li><li>Dynatrace</li></ul>",
+                "type": "String"
+            },
+            "IngressRules": {
+                "defaultValue": "<b>OpenShift ingress</b>",
+                "type": "String"
+            },
+            "Nodeport": {
+                "defaultValue": "<strong>Nodeport</strong>",
+                "type": "String"
+            },
+            "TaskHeader": {
+                "defaultValue": "<b>Tehtävät</b>",
+                "type": "String"
+            },
+            "ENV_AreaPath": {
+                "defaultValue": "Fimlab\\Fujitsu-Shared Services\\PSQL",
+                "type": "String"
+            },
+            "ENV_assigned": {
+                "defaultValue": "kari.vartia@fujitsu.com",
+                "type": "String"
+            },
+            "ENV_Organization": {
+                "defaultValue": "Fimlab",
+                "type": "String"
+            },
+            "ENV_Project": {
+                "defaultValue": "Fimlab",
+                "type": "String"
+            },
+            "Uusi_PostreSQL": {
+                "defaultValue": "Uusi PostreSQL OpenShift projekti: ",
+                "type": "String"
+            },
+            "Uusi_CNPG": {
+                "defaultValue": "Uusi CNPG klusteri: ",
+                "type": "String"
+            },
+            "Database": {
+                "defaultValue": "<strong>Database</strong>",
+                "type": "String"
+            },
+            "Addons": {
+                "defaultValue": "<strong>Extensions</strong>",
+                "type": "String"
+            },
+            "Version": {
+                "defaultValue": "<strong>Version</strong>",
+                "type": "String"
+            },
+            "LDAPGroups": {
+                "defaultValue": "<strong>LDAP-groups</strong>",
+                "type": "String"
+            },
+            "Priority": {
+                "defaultValue": "<strong>Priority</strong>",
+                "type": "String"
+            },
+            "ResourceClass": {
+                "defaultValue": "<strong>Resource class</strong>",
+                "type": "String"
+            },
+            "Migration": {
+                "defaultValue": "<strong>Migraatio</strong>",
+                "type": "String"
+            },
+            "PGExtension": {
+                "defaultValue": "pgcrypto",
+                "type": "String"
+            },
+            "PGVersion": {
+                "defaultValue": "18",
+                "type": "String"
+            },
+            "ResourceClasses": {
+                "defaultValue": "<strong>Resource Classes</strong><table border=\"1\" style=\"border-collapse:collapse;\"><tr><th>Class</th><th>Memory</th><th>CPU Request</th><th>CPU Limit</th></tr><tr><td>S</td><td>2 Gi</td><td>100m</td><td>1</td></tr><tr><td>M</td><td>4 Gi</td><td>250m</td><td>2</td></tr><tr><td>L</td><td>8 Gi</td><td>500m</td><td>4</td></tr></table>",
+                "type": "String"
+            },
+            "ENV_LDAP_assigned": {
+                "defaultValue": "maria.helevirta-kopsa@fimlab.fi",
+                "type": "String"
+            },
+            "App account": {
+                "defaultValue": "Application account",
+                "type": "String"
+            },
+            "$connections": {
+                "type": "Object",
+                "defaultValue": {}
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "type": "Object",
+            "value": {
+                "visualstudioteamservices-2": {
+                    "id": "/subscriptions/1e2a65a1-acf6-4b38-aa76-aa7247650f67/providers/Microsoft.Web/locations/northeurope/managedApis/visualstudioteamservices",
+                    "connectionId": "/subscriptions/1e2a65a1-acf6-4b38-aa76-aa7247650f67/resourceGroups/AzureDevOpsIntegrations/providers/Microsoft.Web/connections/visualstudioteamservices-5",
+                    "connectionName": "visualstudioteamservices-5",
+                    "connectionProperties": {}
+                },
+                "visualstudioteamservices-6": {
+                    "id": "/subscriptions/1e2a65a1-acf6-4b38-aa76-aa7247650f67/providers/Microsoft.Web/locations/northeurope/managedApis/visualstudioteamservices",
+                    "connectionId": "/subscriptions/1e2a65a1-acf6-4b38-aa76-aa7247650f67/resourceGroups/AzureDevOpsIntegrations/providers/Microsoft.Web/connections/visualstudioteamservices-5",
+                    "connectionName": "visualstudioteamservices-5",
+                    "connectionProperties": {}
+                }
+            }
+        }
+    }
+}
