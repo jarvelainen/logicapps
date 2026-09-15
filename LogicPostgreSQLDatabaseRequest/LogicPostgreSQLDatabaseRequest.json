@@ -343,6 +343,31 @@
                                     }
                                 }
                             },
+                            "Update_parent_work_item_ChildrenCreated": {
+                                "runAfter": {
+                                    "Create_a_work_item_Uudet_PostreSQL_OpenLDAP_luvitukset": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ApiConnection",
+                                "inputs": {
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['visualstudioteamservices-6']['connectionId']"
+                                        }
+                                    },
+                                    "method": "patch",
+                                    "body": {
+                                        "dynamicFields": {
+                                            "Custom.ChildrenCreated": true
+                                        }
+                                    },
+                                    "path": "/_apis/wit/workitems/@{encodeURIComponent(triggerBody()?['resource']?['WorkItemId'])}",
+                                    "queries": {
+                                        "account": "@parameters('ENV_Organization')"
+                                    }
+                                }
+                            },
                             "Compose_Migration_Instance": {
                                 "runAfter": {
                                     "Compose_Application_Severs": [
@@ -424,6 +449,14 @@
                                 "@body('Get_work_item_details')?['fields']?['Custom_Active']",
                                 true
                             ]
+                        },
+                        {
+                            "not": {
+                                "equals": [
+                                    "@body('Get_work_item_details')?['fields']?['Custom.ChildrenCreated']",
+                                    true
+                                ]
+                            }
                         }
                     ]
                 },
